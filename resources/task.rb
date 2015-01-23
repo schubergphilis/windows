@@ -41,6 +41,7 @@ attribute :frequency, :equal_to => [:minute,
                                     :on_idle], :default => :hourly
 attribute :start_day, :kind_of => String, :default => nil
 attribute :start_time, :kind_of => String, :default => nil
+attribute :only_logged_on, :kind_of => [ TrueClass, FalseClass ], :default => false
 
 attr_accessor :exists, :status, :enabled
 
