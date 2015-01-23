@@ -35,8 +35,9 @@ action :create do
     cmd += "/ST \"#{@new_resource.start_time}\" " unless @new_resource.start_time.nil?
     cmd += "/TR \"#{@new_resource.command}\" "
     cmd += "/RU \"#{@new_resource.user}\" " if @new_resource.user
-    cmd += "/RP \"#{@new_resource.password}\" " if @new_resource.user and @new_resource.password
+    cmd += "/RP \"#{@new_resource.password}\" " if @new_resource.user and @new_resource.password and not @new_resource.only_logged_on
     cmd += "/RL HIGHEST " if @new_resource.run_level == :highest
+    cmd += "/IT " if @new_resource.only_logged_on == true
     shell_out!(cmd, {:returns => [0]})
     new_resource.updated_by_last_action true
     Chef::Log.info "#{@new_resource} task created"
