@@ -21,6 +21,10 @@ class Chef
         # If we specified a version, and it's not the current version, move to the specified version
         if @new_resource.version != nil && @new_resource.version != @current_resource.version
           install_version = @new_resource.version
+          if @new_resource.uninstall_to_upgrade && @current_resource.version != nil
+             Chef::Log.info("Removing #{@current_resource} before upgrading")
+             remove_package(@current_resource.package_name, @current_resource.version)
+          end
         # If it's not installed at all, install it
         elsif @current_resource.version == nil
           install_version = candidate_version
@@ -91,6 +95,14 @@ class Chef
         @current_installed_version ||= begin
           if installed_packages.include?(@new_resource.package_name)
             installed_packages[@new_resource.package_name][:version]
+          else
+            begin
+               matching_package = installed_packages.select { |k,v| v[:name] =~ /#{@new_resource.package_name}/ }.first
+               @current_resource.package_name(matching_package[1][:name])
+               matching_package[1][:version]
+            rescue SyntaxError, NoMethodError
+              nil
+            end
           end
         end
       end
@@ -110,11 +122,11 @@ class Chef
       end
 
       def remove_package(name, version)
-        uninstall_string = installed_packages[@new_resource.package_name][:uninstall_string]
+        uninstall_string = installed_packages[@current_resource.package_name][:uninstall_string]
         Chef::Log.info("Registry provided uninstall string for #{@new_resource} is '#{uninstall_string}'")
         uninstall_command = begin
           if uninstall_string =~ /msiexec/i
-            "#{uninstall_string} /qn"
+            "#{uninstall_string} /qn".sub(/ \/[Ii]/," /X")
           else
             uninstall_string.gsub!('"','')
             "start \"\" /wait /d\"#{::File.dirname(uninstall_string)}\" #{::File.basename(uninstall_string)}#{expand_options(@new_resource.options)} /S & exit %%%%ERRORLEVEL%%%%"
@@ -141,7 +153,7 @@ class Chef
         case installer_type
         when :msi
           # this is no-ui
-          "/qn /i"
+          "/qb /i"
         when :installshield
           "/s /sms"
         when :nsis
@@ -208,6 +220,7 @@ class Chef
       attribute :checksum, :kind_of => String
       attribute :timeout, :kind_of => Integer, :default => 600
       attribute :success_codes, :kind_of => Array, :default => [0, 42, 127]
+      attribute :uninstall_to_upgrade, :kind_of => [ FalseClass, TrueClass ], :default => false
 
       self.resource_name = 'windows_package'
       def initialize(*args)
